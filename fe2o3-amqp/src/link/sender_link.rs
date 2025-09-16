@@ -377,6 +377,7 @@ async fn send_transfer(
 }
 
 #[inline]
+#[allow(dead_code)]
 async fn send_disposition(
     writer: &mpsc::Sender<LinkFrame>,
     first: DeliveryNumber,
