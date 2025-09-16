@@ -3,9 +3,13 @@ use fe2o3_amqp_types::{
     performatives::End,
 };
 use tokio::{
+    runtime::Handle,
     sync::{mpsc, oneshot},
     task::JoinHandle,
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use once_cell::sync::OnceCell;
 
 use crate::{
     connection::{self},
@@ -107,6 +111,17 @@ where
 }
 
 cfg_not_wasm32! {
+    static FALLBACK_RUNTIME: OnceCell<tokio::runtime::Runtime> = OnceCell::new();
+
+    fn fallback_runtime() -> &'static tokio::runtime::Runtime {
+        FALLBACK_RUNTIME.get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .expect("create fallback runtime")
+        })
+    }
+
     impl<S> SessionEngine<S>
     where
         S: endpoint::SessionEndpoint<State = SessionState> + Send + Sync + 'static,
@@ -115,7 +130,10 @@ cfg_not_wasm32! {
     {
         pub fn spawn(self) -> (JoinHandle<()>, oneshot::Receiver<Result<(), Error>>) {
             let (tx, rx) = oneshot::channel();
-            let handle = tokio::spawn(self.event_loop(tx));
+            let handle = match Handle::try_current() {
+                Ok(handle) => handle.spawn(self.event_loop(tx)),
+                Err(_) => fallback_runtime().handle().spawn(self.event_loop(tx)),
+            };
             (handle, rx)
         }
     }

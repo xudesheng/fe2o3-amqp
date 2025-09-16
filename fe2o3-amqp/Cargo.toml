@@ -53,6 +53,7 @@ url.workspace = true
 slab.workspace = true
 serde_bytes.workspace = true
 parking_lot = { workspace = true, features = ["send_guard"] }
+once_cell = { workspace = true }
 
 # Optinoal deps that are feature themselves
 tracing = { workspace = true, optional = true }
